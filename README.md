@@ -1,0 +1,331 @@
+# SharePoint-Custom-Form
+![Alt text](/Gallery/blob/master/Custome-form.PNG "custom-form")
+</br>
+*** The problem :**** 
+</br>
+The costumer need a form to enter huge amount of data to system ( like 800 items per day) and this items consists of many fields some of it needs to be updated and the other stay as it is for some bulk data(like the date and package title…etc) , it’s a tedious process for the  employee to use the default SharePoint Form or info-path form since they need to reopen the form after entering each item. furthermore, they can't see what they entered in the same form. Also with the default SharePoint form they can't take advantage of Bar-code reader to enter items to the system with less time and effort.
+</br>
+ ******what custom-form provide:******
+</br>
+Our custom-form solve the above problem and let the user enter as much items as he wants without any need to reopen the form or reenter all items but the needed, also the form let the user see what items entered to the system. 
+</br>
+******* Sample-Code *************
+</br>
+<!DOCTYPE html>
+<html>
+<head>
+<!-- Style CSS the form-->
+<style media="screen" type="text/css">
+#form1{
+	  border-radius: 5px;
+    background-color: #f2f2f2;
+}
+.f{
+	  width: 96%;
+    margin: 8px 0;
+    margin-left:2%;
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+.label{
+margin-left:2%;
+}
+#saveBtn{
+	  width: 96%;
+    background-color:#0072c6;
+    text-align:center;
+    color: white;
+   /* padding: 14px 20px;*/
+    margin: 8px 0;
+        margin-left: 2%;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    }
+#saveBtn:hover{
+  background-color:#2e458b;
+	}
+#formheader{
+	text-align: center;
+    background-color:#0072c6 ;
+    color:white;
+    font-weight: bold;
+   /* padding: 12px 20px;*/	
+}
+
+#policyList{
+	background-color:#d1d1d1;
+	border: 1px solid lightgray;
+	margin-left: 1%;
+    margin-right: 2%;
+}
+#policyList li:nth-child(even){
+	background-color:#92c0e0;
+	padding:2px;
+}
+#policyList li:nth-child(odd){
+	background-color:#f1f1f1;
+	padding:2px;
+}
+
+</style>
+<!-- Function for saving data in the SharePoint list -->
+	<script type="text/javascript">
+	//--------------- on page laod functions -------------------------
+	window.onload = loadFunc;
+	
+	function loadFunc(){
+	GetDrivers();
+	getLength();
+	}
+	//-------------------------- get length ---------------------------------
+ var length;
+ function getLength(){
+ 	var siteUrl = 'http://crm.naqel.ps';
+	var clientContext = new SP.ClientContext(siteUrl);
+	var oList = clientContext.get_web().get_lists().getByTitle('SettingList');
+	var oListItem = oList.getItemById(1);
+	clientContext.load(oListItem);
+	clientContext.executeQueryAsync(function(){
+	 length = oListItem.get_item("value");
+	//console.log(length+" - this is the length from setting lis and the type is "+typeof(length));
+	//return length;
+	},function(){console.log("error in get length from setting list");});	
+	//console.log("return length:"+length);
+	//return length;
+ }
+ var i;
+
+ //------------------------- check policy if COD or not -----------------
+ function COD(){
+   if(document.getElementById("policyNo").value.length!=length){
+		alert("Policy number must consists of "+length+" digits");
+		document.getElementById('policyNo').style.borderColor = "red";
+		document.getElementById('policyNo').focus();
+		return;
+	 } 
+   	 var PolicyNo = document.getElementById('policyNo').value.substring(0,length);
+   	 var siteUrl = 'http://crm.naqel.ps';
+   	 var oList = clientContext.get_web().get_lists().getByTitle('NaqelPolicy');
+   	 var query = new SP.CamlQuery();
+ query.set_viewXml("<View><Query><Where><Eq><FieldRef Name='Policy_x0020_Number'/>" +
+                    "<Value Type='Text'>"+PolicyNo+"</Value></Eq></Where></Query>" + 
+                    "</View>");
+ 		var listItemCol = oList.getItems(query);
+  clientContext.load(listItemCol,'Include(Policy_x0020_Number,Driver,Policy_x0020_status,ID,COD,Account_x0020_Number)');
+ clientContext.executeQueryAsync(function(){
+     var listEnum = listItemCol.getEnumerator();
+     if(listEnum.moveNext())
+     {
+     var item = listEnum.get_current();
+     var status= item.get_item('Policy_x0020_status');
+     var id= item.get_item('ID');
+	 var COD = item.get_item('COD');
+	 var acc = item.get_item('Account_x0020_Number');
+	 console.log("account no +++ :: "+acc);
+     if(status =='Checked out' && acc!= null)
+     {
+	 if(!COD){
+	 document.getElementById('cashDiv').style.display='none';
+	 }
+     console.log("item status is:"+status+" id:"+id);
+	 i=id;
+	  document.getElementById('policyNo').style.borderColor = "green";   
+	 document.getElementById("saveBtn").disabled = false;
+	  document.getElementById("saveBtn").style.background = "";
+     }
+     else
+     {
+     console.log("not checked out");
+     alert("Please Check policy number !!! ");
+     document.getElementById('policyNo').style.borderColor = "red";   
+	 document.getElementById("saveBtn").disabled = true;
+	  document.getElementById("saveBtn").style.background = "red";
+     }
+     return;
+     }
+     else
+     {
+        console.log("not exist");
+     alert("Please Check policy number !!! ");
+     document.getElementById('policyNo').style.borderColor = "red"; 
+	 document.getElementById("saveBtn").disabled = true;
+	 document.getElementById("saveBtn").style.background = "red";
+     }		  
+	}, function(){Alert("Error");});
+ 
+ 
+ }
+ //------------------------ append added policy to list ------------------
+ function showAddedPolicy(policyNumber,status){
+  var ol = document.getElementById("policyList");
+  var li = document.createElement("li");
+  li.appendChild(document.createTextNode(policyNumber+" , item: "+status));
+  ol.appendChild(li);
+
+}
+
+//------------------------ check if Policy Number exists or not -----------------------
+	 function checkPolicy(){
+ if(document.getElementById("policyNo").value.length!=length){
+		alert("Policy number must consists of "+length+" digits");
+		document.getElementById('policyNo').style.borderColor = "red";
+		document.getElementById('policyNo').focus();
+		return;
+	 } 
+   	 var PolicyNo = document.getElementById('policyNo').value.substring(0,length);
+   	 var siteUrl = 'http://crm.naqel.ps';
+   	 var oList = clientContext.get_web().get_lists().getByTitle('NaqelPolicy');
+   	 var query = new SP.CamlQuery();
+ query.set_viewXml("<View><Query><Where><Eq><FieldRef Name='Policy_x0020_Number'/>" +
+                    "<Value Type='Text'>"+PolicyNo+"</Value></Eq></Where></Query>" + 
+                    "</View>");
+ 		var listItemCol = oList.getItems(query);
+  clientContext.load(listItemCol,'Include(Policy_x0020_Number,ID)');
+ clientContext.executeQueryAsync(function(){
+     var listEnum = listItemCol.getEnumerator();
+     if(listEnum.moveNext())
+     {
+     var item = listEnum.get_current();
+    // var status= item.get_item('Policy_x0020_status');
+     var id= item.get_item('ID');
+	// var COD = item.get_item('COD');
+	// var acc = item.get_item('Account_x0020_Number');
+	// console.log("account no +++ :: "+acc);
+	updatePolicy(id);
+     AddTrackPolicyEvent();
+     return;
+     }	  
+	}, function(){Alert("Error");});
+ }
+		//----------------------	get all Drivers from the list function -----------------------------	
+			function GetDrivers(){
+	var siteUrl = 'http://crm.naqel.ps';
+	var   ctx = new SP.ClientContext(siteUrl);
+	var customList = ctx.get_web().get_lists().getByTitle('Drivers');	 
+	var camlQuery = new SP.CamlQuery();
+	camlQuery.set_viewXml('<Query><OrderBy><FieldRef Name="ID"/></OrderBy></Query>');
+	var listItemCol = customList.getItems(camlQuery); 
+	ctx.load(listItemCol); 
+	ctx.executeQueryAsync(function(){ 
+        var listItems = [];
+        var listEnum = listItemCol.getEnumerator();
+        while (listEnum.moveNext()) {
+            var item = listEnum.get_current();
+            listItems.push(item.get_item('Title'));
+       								 }  
+  //--------fill array into option in html select tag--------------
+			 var sel = document.getElementById('drivers');
+			var fragment = document.createDocumentFragment();
+			listItems.forEach(function(listItem, index) {
+			    var opt = document.createElement('option');
+			    opt.innerHTML = listItem;
+			    opt.value = listItem;
+			    fragment.appendChild(opt);
+			});
+			sel.appendChild(fragment);
+			SetDriverVal();
+ 					},function(sender, args){ alert('Error: '+ args.get_message()); });
+   			 }
+	//----------------- save selected driver function ----------------------------	 
+   			 function SaveSelectedDriver(){
+   			 var DriverList = document.getElementById("drivers");
+				var DriverName = DriverList.options[DriverList.selectedIndex].value;
+			var test =localStorage.setItem('Driver',DriverName);
+				var savedDriver=localStorage.getItem('Driver');
+				   			 }
+   	//----------------- set driver value funcion --------------------------- 
+   			 function SetDriverVal(){
+   			var DriverVal = String(localStorage.getItem('Driver'));
+   			document.getElementById("drivers").value = DriverVal;
+   			 }
+  
+//--------------------------- update Policy exists item [status , driver ,cost and currencyType ]----------------------------
+	function updatePolicy(id){	
+		console.log(id+" item id to be updated");
+			var Driver = document.getElementById('drivers').value;
+			var Cost = document.getElementById('PolicyCost').value;
+			var currencyType = document.getElementById('CurrencyType').value;
+			var PODReceiver = document.getElementById('ReceiverName').value;
+			var cashPolicyNo = document.getElementById('cashPolicyNo').value;
+			var siteUrl = 'http://crm.naqel.ps';
+			var clientContext = new SP.ClientContext(siteUrl);
+			var oList = clientContext.get_web().get_lists().getByTitle('NaqelPolicy');
+			var oListItem = oList.getItemById(id);
+			oListItem.set_item('Policy_x0020_status','POD');
+			oListItem.set_item('Driver',Driver);
+			oListItem.set_item('Cost',Cost);
+			oListItem.set_item('currencyType',currencyType);
+			oListItem.set_item('PODReceiverName',PODReceiver);
+			oListItem.set_item('cashPolicyNo',cashPolicyNo);
+			oListItem.update();
+			clientContext.executeQueryAsync(function(){
+			AddTrackPolicyEvent();
+			showAddedPolicy(document.getElementById('policyNo').value.substring(0,length),"Updated");
+			document.getElementById('policyNo').value="";
+			document.getElementById('PolicyCost').value="";
+			document.getElementById('CurrencyType').value="";
+			document.getElementById('ReceiverName').value="";
+			document.getElementById('cashPolicyNo').value="";
+			document.getElementById('policyNo').style.borderColor = "green";  
+				document.getElementById('policyNo').focus();
+
+			},function(){alert('Request failed. ' + args.get_message() + '\n' + args.get_stackTrace());});
+	}
+//----------------------------------- add item to Track Policy events list -----------------
+	function AddTrackPolicyEvent(){			
+			var Driver = document.getElementById('drivers').value;
+			var PolicyNo = document.getElementById('policyNo').value.substring(0,length);
+			var status = 'POD';
+			var siteUrl = 'http://crm.naqel.ps';
+			var clientContext = new SP.ClientContext(siteUrl);
+			var oList = clientContext.get_web().get_lists().getByTitle('NaqelPolicyTrack');
+			var itemCreateInfo = new SP.ListItemCreationInformation();
+			this.oListItem = oList.addItem(itemCreateInfo);
+			oListItem.set_item('Policy_x0020_Number',PolicyNo);
+			oListItem.set_item('Driver',Driver);
+			oListItem.set_item('Status',status);
+			oListItem.update();
+			clientContext.load(oListItem);
+			clientContext.executeQueryAsync();
+	}	
+</script>
+<!-- The form style -->
+<link href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,300italic,400italic,600" rel="stylesheet" type="text/css">
+<link href="//netdna.bootstrapcdn.com/font-awesome/3.1.1/css/font-awesome.css" rel="stylesheet">
+</head>
+<body>	
+		
+		<div id="form1">
+		<h4 id="formheader"> POD Form</h4>
+	<label id="driverLabel" class="label" for="drivers"><b>Driver</b></label>
+    <select id="drivers" class="f" onchange="SaveSelectedDriver()">
+    </select>
+    <label id="policyLabel" class="label" for="fname"><b>Policy Number</b></label>
+   <!--  <input type="text" id="test" onchange="checkPolicy();">-->
+    <input type="text" class="f" id="policyNo"  autofocus="autofocus" placeholder="Enter policy number here.." onchange="COD();">
+	<label id="policyLabel" class="label" for="fname"><b>POD Receiver Name</b></label>
+	<input type="text" class="f" id="ReceiverName">
+	<div id="cashDiv">
+	<label id="policyLabel" class="label" for="fname"><b>Cash Policy Number</b></label>
+	<input type="text" class="f" id="cashPolicyNo">
+	</div>
+	<label id="policyLabel" class="label" for="fname"><b>Policy Cost</b></label>
+	<input type="Number" class="f" id="PolicyCost">
+	<label id="policyLabel" class="label" for="fname"><b>Currency Type</b></label>
+	 <select class="f" id="CurrencyType">
+	 <option>NIS</option>
+	 <option>JD</option>
+	 <option>USD</option>
+    </select>
+	 <button id="saveBtn" onclick="updatePolicy(i);return false;" >Submit</button>
+<!--	 <button id="colseBtn" onclick="myWindow.close()" display="inline-block" float="left">Close</button>-->
+	 <ol id="policyList"></ol><br>		
+			</div>
+</body>
+</html>
+
+
